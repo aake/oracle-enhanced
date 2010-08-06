@@ -74,9 +74,9 @@ module ActiveRecord
       end
 
       def foreign_key_definition(to_table, options = {}) #:nodoc:
-        column = options[:column] || "#{to_table.to_s.singularize}_id"
-        primary_key = options[:primary_key] || "id"
-        sql = "FOREIGN KEY (#{quote_column_name(column)}) REFERENCES #{quote_table_name(to_table)}(#{primary_key})"
+        columns = options[:cols].map {|c| quote_column_name(c)}.join(',')
+        refs = options[:refs].map {|c| quote_column_name(c)}.join(',')
+        sql = "FOREIGN KEY (#{columns}) REFERENCES #{quote_table_name(to_table)}(#{refs})"
         case options[:dependent]
         when :nullify
           sql << " ON DELETE SET NULL"
@@ -128,7 +128,7 @@ module ActiveRecord
 
         fk_info = select_all(<<-SQL, 'Foreign Keys')
           SELECT r.table_name to_table
-                ,rc.column_name primary_key
+                ,rc.column_name references_column
                 ,cc.column_name
                 ,c.constraint_name name
                 ,c.delete_rule
@@ -144,18 +144,29 @@ module ActiveRecord
              AND rc.owner = r.owner
              AND rc.constraint_name = r.constraint_name
              AND rc.position = cc.position
+          ORDER BY name, to_table, column_name, references_column
         SQL
 
+        fks = {}
+
         fk_info.map do |row|
-          options = {:column => oracle_downcase(row['column_name']), :name => oracle_downcase(row['name']),
-            :primary_key => oracle_downcase(row['primary_key'])}
-          case row['delete_rule']
-          when 'CASCADE'
-            options[:dependent] = :delete
-          when 'SET NULL'
-            options[:dependent] = :nullify
-          end
-          OracleEnhancedForeignKeyDefinition.new(table_name, oracle_downcase(row['to_table']), options)
+          name = oracle_downcase(row['name'])
+          fks[name] ||= { :cols => [], :to_table => oracle_downcase(row['to_table']), :refs => [] }
+          fks[name][:cols] << oracle_downcase(row['column_name'])
+          fks[name][:refs] << oracle_downcase(row['references_column'])
+          fks[name][:dependent] ||= case row['delete_rule']
+                                    when 'CASCADE'
+                                      options[:dependent] = :delete
+                                    when 'SET NULL'
+                                      options[:dependent] = :nullify
+                                    else
+                                      nil
+                                    end
+        end
+        
+        fks.map do |k, v|
+          options = {:name => k, :cols => v[:cols], :refs => v[:refs], :dependent => v[:dependent]}
+          OracleEnhancedForeignKeyDefinition.new(table_name, v[:to_table], options)
         end
       end
 

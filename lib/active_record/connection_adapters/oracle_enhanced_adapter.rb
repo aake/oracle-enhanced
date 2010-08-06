@@ -1342,7 +1342,7 @@ module ActiveRecord
             end
           end
           ddl << cols.join(",\n ")
-          ddl << structure_dump_constraints(table_name)
+          ddl << structure_dump_primary_key(table_name)
           ddl << "\n)"
           structure << ddl
           structure << structure_dump_indexes(table_name)
@@ -1380,11 +1380,6 @@ module ActiveRecord
         col << " GENERATED ALWAYS AS (#{data_default}) VIRTUAL"
       end
 
-      def structure_dump_constraints(table) #:nodoc:
-        out = [structure_dump_primary_key(table), structure_dump_unique_keys(table)].flatten.compact
-        out.length > 0 ? ",\n#{out.join(",\n")}" : ''
-      end
-
       def structure_dump_primary_key(table) #:nodoc:
         opts = {:name => '', :cols => []}
         pks = select_all(<<-SQL, "Primary Keys") 
@@ -1400,7 +1395,7 @@ module ActiveRecord
           opts[:name] = row['constraint_name']
           opts[:cols][row['position']-1] = row['column_name']
         end
-        opts[:cols].length > 0 ? " CONSTRAINT #{opts[:name]} PRIMARY KEY (#{opts[:cols].join(',')})" : nil
+        opts[:cols].length > 0 ? "\n CONSTRAINT #{opts[:name]} PRIMARY KEY (#{opts[:cols].join(',')})" : ''
       end
 
       def structure_dump_unique_keys(table) #:nodoc:

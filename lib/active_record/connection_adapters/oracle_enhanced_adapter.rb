@@ -1395,7 +1395,7 @@ module ActiveRecord
           opts[:name] = row['constraint_name']
           opts[:cols][row['position']-1] = row['column_name']
         end
-        opts[:cols].length > 0 ? "\n CONSTRAINT #{opts[:name]} PRIMARY KEY (#{opts[:cols].join(',')})" : ''
+        opts[:cols].length > 0 ? ",\n CONSTRAINT #{opts[:name]} PRIMARY KEY (#{opts[:cols].join(',')})" : ''
       end
 
       def structure_dump_unique_keys(table) #:nodoc:

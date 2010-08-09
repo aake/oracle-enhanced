@@ -1345,6 +1345,7 @@ module ActiveRecord
           ddl << "\n)"
           structure << ddl
           structure << structure_dump_indexes(table_name)
+          structure << structure_dump_unique_keys(table_name)
         end
 
         join_with_statement_token(structure) << structure_dump_fk_constraints
@@ -1413,7 +1414,7 @@ module ActiveRecord
           keys[uk['constraint_name']][uk['position']-1] = uk['column_name']
         end
         keys.map do |k,v|
-          " CONSTRAINT #{k} UNIQUE (#{v.join(',')})"
+          "ALTER TABLE #{table.upcase} ADD CONSTRAINT #{k} UNIQUE (#{v.join(',')})"
         end
       end
 

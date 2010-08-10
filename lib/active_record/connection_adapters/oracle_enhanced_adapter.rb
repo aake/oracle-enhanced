@@ -1502,6 +1502,7 @@ module ActiveRecord
         select_values("select table_name from all_tables t
                     where owner = sys_context('userenv','session_user') and secondary='N'
                       and not exists (select mv.mview_name from all_mviews mv where mv.owner = t.owner and mv.mview_name = t.table_name)
+                      and not exists (select mvl.log_table from all_mview_logs mvl where mvl.log_owner = t.owner and mvl.log_table = t.table_name)
                     order by 1").each do |table|
           statements << "DROP TABLE \"#{table}\" CASCADE CONSTRAINTS"
         end

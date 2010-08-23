@@ -135,7 +135,7 @@ describe "OracleEnhancedAdapter structure dump" do
           add CONSTRAINT uk_foo_foo_id UNIQUE (foo, foo_id)
       SQL
       dump = ActiveRecord::Base.connection.structure_dump_unique_keys("test_posts")
-      dump.should == [" CONSTRAINT UK_FOO_FOO_ID UNIQUE (FOO,FOO_ID)"]
+      dump.should == ["ALTER TABLE TEST_POSTS ADD CONSTRAINT UK_FOO_FOO_ID UNIQUE (FOO,FOO_ID)"]
     
       dump = ActiveRecord::Base.connection.structure_dump
       dump.should =~ /CONSTRAINT UK_FOO_FOO_ID UNIQUE \(FOO,FOO_ID\)/

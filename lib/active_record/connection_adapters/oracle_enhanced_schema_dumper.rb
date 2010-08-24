@@ -58,10 +58,10 @@ module ActiveRecord #:nodoc:
             statement_parts << foreign_key.to_table.inspect
             statement_parts << (':name => ' + foreign_key.options[:name].inspect)
             
-            if foreign_key.options[:column] != "#{foreign_key.to_table.singularize}_id"
+            if foreign_key.options[:columns].first != "#{foreign_key.to_table.singularize}_id"
               statement_parts << (':column => ' + foreign_key.options[:column].inspect)
             end
-            if foreign_key.options[:primary_key] != 'id'
+            if foreign_key.options[:references].first != 'id'
               statement_parts << (':primary_key => ' + foreign_key.options[:primary_key].inspect)
             end
             unless foreign_key.options[:dependent].blank?

@@ -74,9 +74,17 @@ module ActiveRecord
       end
 
       def foreign_key_definition(to_table, options = {}) #:nodoc:
-        columns = options[:cols].map {|c| quote_column_name(c)}.join(',')
-        refs = options[:refs].map {|c| quote_column_name(c)}.join(',')
-        sql = "FOREIGN KEY (#{columns}) REFERENCES #{quote_table_name(to_table)}(#{refs})"
+        if options[:columns]
+          # composite foreign key
+          columns = options[:columns].map {|c| quote_column_name(c)}.join(',')
+          references = options[:references].map {|c| quote_column_name(c)}.join(',')
+        else
+          columns = options[:column] || "#{to_table.to_s.singularize}_id"
+          references = options[:primary_key] || "id"
+        end
+        
+        sql = "FOREIGN KEY (#{quote_column_name(columns)}) REFERENCES #{quote_table_name(to_table)}(#{references})"
+        
         case options[:dependent]
         when :nullify
           sql << " ON DELETE SET NULL"
@@ -151,21 +159,19 @@ module ActiveRecord
 
         fk_info.map do |row|
           name = oracle_downcase(row['name'])
-          fks[name] ||= { :cols => [], :to_table => oracle_downcase(row['to_table']), :refs => [] }
-          fks[name][:cols] << oracle_downcase(row['column_name'])
-          fks[name][:refs] << oracle_downcase(row['references_column'])
-          fks[name][:dependent] ||= case row['delete_rule']
-                                    when 'CASCADE'
-                                      options[:dependent] = :delete
-                                    when 'SET NULL'
-                                      options[:dependent] = :nullify
-                                    else
-                                      nil
-                                    end
+          fks[name] ||= { :columns => [], :to_table => oracle_downcase(row['to_table']), :references => [] }
+          fks[name][:columns] << oracle_downcase(row['column_name'])
+          fks[name][:references] << oracle_downcase(row['references_column'])
+          case row['delete_rule']
+          when 'CASCADE'
+            fks[name][:dependent] = :delete
+          when 'SET NULL'
+            fks[name][:dependent] = :nullify
+          end
         end
         
         fks.map do |k, v|
-          options = {:name => k, :cols => v[:cols], :refs => v[:refs], :dependent => v[:dependent]}
+          options = {:name => k, :columns => v[:columns], :references => v[:references], :dependent => v[:dependent]}
           OracleEnhancedForeignKeyDefinition.new(table_name, v[:to_table], options)
         end
       end

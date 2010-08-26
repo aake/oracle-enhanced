@@ -52,38 +52,49 @@ module ActiveRecord
       #     people_best_friend_id_fk FOREIGN KEY (best_friend_id) REFERENCES people (id)
       #     ON DELETE SET NULL
       # 
+      # ==== Creating a composite foreign key
+      #  add_foreign_key(:comments, :posts, :columns => ['post_id', 'author_id'], :name => 'comments_post_fk')
+      # generates
+      #  ALTER TABLE comments ADD CONSTRAINT
+      #     comments_post_fk FOREIGN KEY (post_id, author_id) REFERENCES posts (post_id, author_id)
+      #       
       # === Supported options
       # [:column]
       #   Specify the column name on the from_table that references the to_table. By default this is guessed
       #   to be the singular name of the to_table with "_id" suffixed. So a to_table of :posts will use "post_id"
       #   as the default <tt>:column</tt>.
+      # [:columns]
+      #   An array of column names when defining composite foreign keys. An alias of <tt>:column</tt> provided for improved readability.
       # [:primary_key]
       #   Specify the column name on the to_table that is referenced by this foreign key. By default this is
-      #   assumed to be "id".
+      #   assumed to be "id". Ignored when defining composite foreign keys.
       # [:name]
       #   Specify the name of the foreign key constraint. This defaults to use from_table and foreign key column.
       # [:dependent]
       #   If set to <tt>:delete</tt>, the associated records in from_table are deleted when records in to_table table are deleted.
       #   If set to <tt>:nullify</tt>, the foreign key column is set to +NULL+.
       def add_foreign_key(from_table, to_table, options = {})
-        column = options[:column] || "#{to_table.to_s.singularize}_id"
-        constraint_name = foreign_key_constraint_name(from_table, column, options)
+        columns = options[:column] || options[:columns] || "#{to_table.to_s.singularize}_id"
+        constraint_name = foreign_key_constraint_name(from_table, columns, options)
         sql = "ALTER TABLE #{quote_table_name(from_table)} ADD CONSTRAINT #{quote_column_name(constraint_name)} "
         sql << foreign_key_definition(to_table, options)
         execute sql
       end
 
       def foreign_key_definition(to_table, options = {}) #:nodoc:
-        if options[:columns]
+        columns = (options[:column] || options[:columns]).to_a
+        
+        if columns.size > 1
           # composite foreign key
-          columns = options[:columns].map {|c| quote_column_name(c)}.join(',')
-          references = options[:references].map {|c| quote_column_name(c)}.join(',')
+          columns_sql = columns.map {|c| quote_column_name(c)}.join(',')
+          references = options[:references] || columns
+          references_sql = references.map {|c| quote_column_name(c)}.join(',')
         else
-          columns = options[:column] || "#{to_table.to_s.singularize}_id"
-          references = options[:primary_key] || "id"
+          columns_sql = columns.first || "#{to_table.to_s.singularize}_id"
+          references_sql = options[:primary_key] || "id"
         end
         
-        sql = "FOREIGN KEY (#{quote_column_name(columns)}) REFERENCES #{quote_table_name(to_table)}(#{references})"
+        sql = "FOREIGN KEY (#{quote_column_name(columns_sql)}) REFERENCES #{quote_table_name(to_table)}(#{references_sql})"
         
         case options[:dependent]
         when :nullify
@@ -114,9 +125,12 @@ module ActiveRecord
 
       private
 
-      def foreign_key_constraint_name(table_name, column, options = {})
-        constraint_name = original_name = options[:name] || "#{table_name}_#{column}_fk"
+      def foreign_key_constraint_name(table_name, columns, options = {})
+        columns = columns.to_a
+        constraint_name = original_name = options[:name] || "#{table_name}_#{columns.join('_')}_fk"
+        
         return constraint_name if constraint_name.length <= OracleEnhancedAdapter::IDENTIFIER_MAX_LENGTH
+        
         # leave just first three letters from each word
         constraint_name = constraint_name.split('_').map{|w| w[0,3]}.join('_')
         # generate unique name using hash function

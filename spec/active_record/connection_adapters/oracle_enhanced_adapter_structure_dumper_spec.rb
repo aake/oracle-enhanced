@@ -29,6 +29,7 @@ describe "OracleEnhancedAdapter structure dump" do
       @conn.execute "DROP TRIGGER test_post_trigger" rescue nil
       @conn.execute "DROP TYPE TEST_TYPE" rescue nil
       @conn.execute "DROP TABLE bars" rescue nil
+      @conn.execute "ALTER TABLE foos drop CONSTRAINT UK_BAZ" rescue nil
       @conn.execute "ALTER TABLE foos drop CONSTRAINT UK_FOOZ_BAZ" rescue nil
       @conn.execute "ALTER TABLE foos drop column fooz_id" rescue nil
       @conn.execute "ALTER TABLE foos drop column baz_id" rescue nil
@@ -64,6 +65,26 @@ describe "OracleEnhancedAdapter structure dump" do
       dump = ActiveRecord::Base.connection.structure_dump_fk_constraints
       dump.split('\n').length.should == 1
       dump.should =~ /ALTER TABLE \"?TEST_POSTS\"? ADD CONSTRAINT \"?FK_TEST_POST_FOO\"? FOREIGN KEY \(\"?FOO_ID\"?\) REFERENCES \"?FOOS\"?\(\"?ID\"?\)/i
+    end
+    
+    it "should dump foreign keys when reference column name is not 'id'" do
+      @conn.add_column :foos, :baz_id, :integer
+      
+      @conn.execute <<-SQL
+        ALTER TABLE FOOS 
+        ADD CONSTRAINT UK_BAZ UNIQUE (BAZ_ID)
+      SQL
+      
+      @conn.add_column :test_posts, :baz_id, :integer
+      
+      @conn.execute <<-SQL
+        ALTER TABLE TEST_POSTS 
+        ADD CONSTRAINT fk_test_post_baz FOREIGN KEY (baz_id) REFERENCES foos(baz_id)
+      SQL
+      
+      dump = ActiveRecord::Base.connection.structure_dump_fk_constraints
+      dump.split('\n').length.should == 1
+      dump.should =~ /ALTER TABLE \"?TEST_POSTS\"? ADD CONSTRAINT \"?FK_TEST_POST_BAZ\"? FOREIGN KEY \(\"?BAZ_ID\"?\) REFERENCES \"?FOOS\"?\(\"?BAZ_ID\"?\)/i
     end
     
     it "should dump composite foreign keys" do

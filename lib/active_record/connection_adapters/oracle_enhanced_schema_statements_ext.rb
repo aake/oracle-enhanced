@@ -90,11 +90,12 @@ module ActiveRecord
           references = options[:references] || columns
           references_sql = references.map {|c| quote_column_name(c)}.join(',')
         else
-          columns_sql = columns.first || "#{to_table.to_s.singularize}_id"
-          references_sql = options[:primary_key] || "id"
+          columns_sql = quote_column_name(columns.first || "#{to_table.to_s.singularize}_id")
+          references = options[:references] ? options[:references].first : nil
+          references_sql = quote_column_name(options[:primary_key] || references || "id")
         end
         
-        sql = "FOREIGN KEY (#{quote_column_name(columns_sql)}) REFERENCES #{quote_table_name(to_table)}(#{references_sql})"
+        sql = "FOREIGN KEY (#{columns_sql}) REFERENCES #{quote_table_name(to_table)}(#{references_sql})"
         
         case options[:dependent]
         when :nullify
